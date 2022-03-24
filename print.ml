@@ -110,10 +110,10 @@ let rec string_of_expr_desc f e =
                        (string_of_expr e1)
                        (string_of_expr e2)
   | EParen e -> Printf.sprintf "(%s)" (string_of_expr e)
-  | ELinebreakAfter e -> Printf.sprintf "%s\n" (string_of_expr e)
-  | ELinebreakBefore e -> Printf.sprintf "\n%s" (string_of_expr e)
-  | ESpaceAfter e -> Printf.sprintf "%s " (string_of_expr e)
-  | ESpaceBefore e -> Printf.sprintf " %s" (string_of_expr e)
+  | ELinebreakAfter e -> Printf.sprintf "%s\\n\n" (string_of_expr e)
+  | ELinebreakBefore e -> Printf.sprintf "\\n\n%s" (string_of_expr e)
+  | ESpaceAfter e -> Printf.sprintf "%s|_| " (string_of_expr e)
+  | ESpaceBefore e -> Printf.sprintf "|_| %s" (string_of_expr e)
                            
 and string_of_expr f e =
   f (string_of_expr_desc f (desc e)) (ann e)

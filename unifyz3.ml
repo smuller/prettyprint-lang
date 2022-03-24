@@ -18,10 +18,37 @@ let nl_le = FuncDecl.mk_func_decl_s ctx "lt" [nl_sort; nl_sort]
 let exp_of_nl =
   function Top -> top | Bottom -> bottom | Internal -> internal | Not -> no_nl
            | Both -> both
-         
+
 let solver =
   Solver.mk_simple_solver ctx
-
+let params = Params.mk_params ctx
+let _ = Params.add_bool
+          params
+          (Symbol.mk_string ctx "unsat_core")
+          true
+let pdescs = Solver.get_param_descrs solver
+let _ = Params.ParamDescrs.validate pdescs params
+let _ =
+  Solver.set_parameters
+    solver
+    params
+let _ = Printf.printf "%s\n" (Solver.to_string solver)
+  
+let const_ctr = ref 0
+let new_name () =
+  const_ctr := !const_ctr + 1;
+  Printf.sprintf "c%d" (!const_ctr)
+  
+let add_consts solver cs =
+  let ps = List.map (fun _ -> Boolean.mk_const_s ctx (new_name ())) cs in
+  let _ =
+    List.iter2 (fun c p -> Printf.printf "%s:\t%s\n" (Expr.to_string p)
+                             (Expr.to_string c))
+      cs
+      ps
+  in
+  Solver.assert_and_track_l solver cs ps
+      
 exception UnificationFailure
 
 let print_consts () =
@@ -36,7 +63,15 @@ let solve_consts () =
   in
   match Solver.check solver (Solver.get_assertions solver) with
   | SATISFIABLE -> ()
-  | UNSATISFIABLE | UNKNOWN -> raise UnificationFailure
+  | UNSATISFIABLE ->
+     Printf.printf "\nUNSAT CORE:\n";
+     List.iter
+       (fun e -> Printf.printf "%s\n" (Expr.to_string e))
+       (Solver.get_unsat_core solver);
+     (* Printf.printf "\n%s\n" (Solver.get_help solver); *)
+     raise UnificationFailure
+
+    | UNKNOWN -> raise UnificationFailure
 
 
         
@@ -44,7 +79,7 @@ let _ =
   Boolean.(
     let x = Quantifier.mk_bound ctx 0 (nl_sort) in
     let y = Quantifier.mk_bound ctx 1 (nl_sort) in
-    Solver.add solver
+    add_consts solver
       [Quantifier.expr_of_quantifier
          (Quantifier.mk_forall
             ctx
@@ -91,11 +126,21 @@ let all_pairs f l =
   in
   ap2 [] l
 
+let not_le_const x y = Boolean.mk_not ctx (Expr.mk_app ctx nl_le [x; y])
 let _ =
-  all_pairs (fun x y ->
-      Solver.add solver
-        [Boolean.mk_not ctx (Expr.mk_app ctx nl_le [x; y])])
-    [top; bottom; internal; no_nl; both]
+  all_pairs (fun x y -> add_consts solver [not_le_const x y])
+    [top; bottom; both]
+
+let _ = List.iter (fun x -> add_consts solver
+                              [not_le_const x internal;
+                               not_le_const internal x])
+          [top; bottom; both]
+let _ = List.iter (fun x -> add_consts solver
+                              [not_le_const x no_nl;
+                               not_le_const no_nl x])
+          [top; bottom; both]
+let _ = add_consts solver [not_le_const internal no_nl;
+                           Expr.mk_app ctx nl_le [no_nl; internal]]
 
 let evar_ctr = ref (-1)
 let new_nlvar () =
@@ -107,7 +152,7 @@ let new_intvar () =
 let mk_int n =
   A.Integer.mk_numeral_i ctx n
 
-(* let _ = Solver.add solver [A.mk_le ctx (A.mk_add ctx [mk_int 5]) (mk_int 0)] *)
+(* let _ = add_consts solver [A.mk_le ctx (A.mk_add ctx [mk_int 5]) (mk_int 0)] *)
   
 let _ = solve_consts ()
 
@@ -128,8 +173,19 @@ let string_of_int_var model v =
   | None -> "ERROR"
 
 let string_of_nl_var model v =
+  let eq_const x y =
+    match Z3.Model.eval model y false with
+    | Some e -> Z3.Expr.equal x e
+    | None -> false
+  in
   (match Z3.Model.eval model v false with
-   | Some e -> Z3.Expr.to_string e
+   | Some e ->
+      if eq_const e top then "top"
+      else if eq_const e bottom then "bottom"
+      else if eq_const e no_nl then "none"
+      else if eq_const e internal then "internal"
+      else if eq_const e both then "both"
+      else "???"
    | None -> "ERROR")
   
 let string_of_info model i =
@@ -163,7 +219,7 @@ let new_uinfo () =
             width = new_intvar ();
             nl = new_nlvar () }
   in
-  Solver.add solver [A.mk_ge ctx i.left (mk_int 0);
+  add_consts solver [A.mk_ge ctx i.left (mk_int 0);
                      A.mk_ge ctx i.width (mk_int 0)];
   i
 
@@ -181,7 +237,7 @@ let widthconsts : constr list ref = ref []
 let nlconsts : nlconst list ref = ref []
 
 let nl_const l ((i, _), nl) =
-  Solver.add solver
+  add_consts solver
     [Boolean.mk_or ctx
        ((Expr.mk_app ctx nl_le [i.nl; exp_of_nl nl])::
           List.map
@@ -204,7 +260,7 @@ let rec occurs (i, t) e =
   | A TInt | A TString | A TBool | A TUnit -> false
 
 let add_const c =
-  Solver.add solver [c]
+  add_consts solver [c]
                                             
 let build_left_constraint (left_types : utype list)
       (left_const : int)
@@ -328,7 +384,7 @@ let nl_dep_consts vs pats =
 let nl (i, _) = i.nl
   
 let rec unify_nl (i1, _) (i2, _) =
-  Solver.add solver
+  add_consts solver
     [Expr.mk_app ctx nl_le [i1.nl; i2.nl];
      Expr.mk_app ctx nl_le [i2.nl; i1.nl]]
 (*

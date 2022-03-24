@@ -1,7 +1,7 @@
 let chan = open_in "test.mml"
 let lexbuf = Lexing.from_channel chan
 
-let prog = Parser.expr Lexer.token lexbuf
+let prog = Parser.main Lexer.token lexbuf
 let t = Typecheck.typecheck_exp_full prog
 (*let s = Print.string_of_expr prog
 let _ = Printf.printf "%s\n" s *)

@@ -46,6 +46,8 @@ let rec typecheck_exp (c: ctx) (e: unit expr) : utype expr =
       | Some t ->
          let t' = new_type () in
          let _ = full_unify t t' in
+         let _ = left_constraint [] 0 [t'] 0 [] in
+         let _ = left_constraint [t'] 0 [] 0 [] in
          let _ = width_constraint [] (String.length x) [t'] 0 [] in
          mk t' (EVar x)
      )
@@ -140,8 +142,8 @@ let rec typecheck_exp (c: ctx) (e: unit expr) : utype expr =
      let t' = new_type () in
      let _ = unify t2 t' in
      let _ = nl_const [(t1, Not); (t2, Not)] (t', Not) in
-     let _ = nl_const [(t1, Not); (t2, Both)] (t', Internal) in
-     let _ = nl_const [(t1, Both); (t2, Both)] (t', Internal) in
+     let _ = nl_const [(t1, Not); (t2, Top)] (t', Internal) in
+     let _ = nl_const [(t1, Both); (t2, Top)] (t', Internal) in
 
 (*
      let _ =
@@ -172,11 +174,11 @@ let rec typecheck_exp (c: ctx) (e: unit expr) : utype expr =
          [([Not; Not],
            [build_left_constraint [] 1 [t2] 0 [];
             build_mix_width [t1; t2] [t1; t2] (9 + (String.length x)) t']);
-          ([Not; Both],
+          ([Not; Top],
            [build_left_constraint [] 1 [t2] 0 [];
             build_mix_width [t1] [t1] (9 + (String.length x)) t';
             build_mix_width [t2] [t2] 0 t']);
-          ([Both; Both],
+          ([Both; Top],
            [build_left_constraint [] 1 [t1] 0 [];
             build_left_constraint [] 1 [t2] 0 [];
             build_left_constraint_eq [t1] 0 [t2] 0 [];
@@ -460,6 +462,8 @@ let rec typecheck_exp (c: ctx) (e: unit expr) : utype expr =
      let _ = nl_const [(t, Internal)] (t', Bottom) in
      let _ = nl_const [(t, Both)] (t', Both) in
      let _ = width_constraint [t] 0 [t'] 0 [] in
+     let _ = left_constraint [t] 0 [t'] 0 [] in
+     let _ = left_constraint [t'] 0 [t] 0 [] in
      mk t' (ELinebreakAfter e')
   | ELinebreakBefore e ->
      let e' = typecheck_exp c e in
@@ -472,6 +476,8 @@ let rec typecheck_exp (c: ctx) (e: unit expr) : utype expr =
      let _ = nl_const [(t, Internal)] (t', Top) in
      let _ = nl_const [(t, Both)] (t', Both) in
      let _ = width_constraint [t] 0 [t'] 0 [] in
+     let _ = left_constraint [t] 0 [t'] 0 [] in
+     let _ = left_constraint [t'] 0 [t] 0 [] in
      mk t' (ELinebreakBefore e')
      
   | ESpaceAfter e ->

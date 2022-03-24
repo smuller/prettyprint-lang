@@ -38,10 +38,14 @@
 %left APP
 
 
-%start expr
-%type <unit Types.expr> expr
+%start main
+%type <unit Types.expr> main
 
 %%
+main:
+  expr NEWLINE                             { $1 }
+;
+
 expr:
   const                                    { mk (EConst $1) }
 | IDENT                                    { mk (EVar $1) }
@@ -67,7 +71,7 @@ expr:
 | SPACE expr                               { mk (ESpaceBefore $2) }
 | expr SPACE                               { mk (ESpaceAfter $1) }
 | NEWLINE expr                             { mk (ELinebreakBefore $2) }
-| expr NEWLINE                             { mk (ELinebreakAfter $1) }
+//| expr NEWLINE                             { mk (ELinebreakAfter $1) }
 ;
 
 dpat:
