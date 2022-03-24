@@ -1,0 +1,12 @@
+(*
+let rec f x = (x, (x, (x, (x, x)))) in
+let y = "a fairly long string that we can't have too many of" in
+f y
+*)
+let x ="a fairly long string that we can't have too many of" in
+(x, 
+ x)
+(*
+let x = "an OK string" in
+(x, x)
+*)
